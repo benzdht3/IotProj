@@ -1,0 +1,5 @@
+SpeechRecognition
+winspeech
+pyaudio
+langchain-openai
+langchain
