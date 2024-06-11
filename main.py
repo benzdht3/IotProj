@@ -1,9 +1,38 @@
 import sys
 import time
 import random
+
+import speech_recognition as sr
+import pyttsx3 
+
 from Adafruit_IO import MQTTClient
 from uart import *
-#from simpleAI import *
+from nlp import *
+import pandas as pd
+import pickle
+import datetime
+
+# Get the current date, month, and year
+today = datetime.datetime.now()
+year = today.year
+month = today.month
+day = today.day
+hour = today.hour
+
+with open('model_temperature.pkl', 'rb') as file:
+    temperature_model = pickle.load(file)
+
+with open('model_humid.pkl', 'rb') as file:
+    humid_model = pickle.load(file)
+
+
+r = sr.Recognizer() 
+
+def SpeakText(command):
+	# Initialize the engine
+	engine = pyttsx3.init()
+	engine.say(command) 
+	engine.runAndWait()
 
 AIO_FEED_IDs = ["button1","button2","sensor1","sensor2","sensor3","ai","Ack"]
 AIO_USERNAME = ""
@@ -43,9 +72,6 @@ def message(client , feed_id , payload):
             writeData("Fan is turned OFF\n")
 
 
-
-        
-
 client = MQTTClient(AIO_USERNAME , AIO_KEY)
 client.on_connect = connected
 client.on_disconnect = disconnected
@@ -60,6 +86,60 @@ prev_ai_res = ""
 typ = random.randint(0,4)
 try:
     while True:
+        try:
+		
+		# use the microphone as source for input.
+            with sr.Microphone() as source2:
+                
+                # wait for a second to let the recognizer
+                # adjust the energy threshold based on
+                # the surrounding noise level 
+                r.adjust_for_ambient_noise(source2, duration=0.2)
+                
+                #listens for the user's input 
+                audio2 = r.listen(source2)
+                
+                # Using google to recognize audio
+                MyText = r.recognize_google(audio2)
+                MyText = MyText.lower()
+
+                print("Did you say ",MyText)
+                result = chatbot(MyText)
+
+                if result[0]['fan'] == 'off':
+                    #publish data fan to off
+                    client.publish("button2",0)
+                elif result[0]['fan'] == 'on':
+                    ##publish data fan to on
+                    client.publish("button2",1)
+
+                if result[0]['light'] == 'off':
+                    #publish data light to off
+                    client.publish("button1",0)
+                elif result[0]['light'] == 'on':
+                    ##publish data light to on
+                    client.publish("button1",1)
+                # SpeakText(MyText)
+                
+        except sr.RequestError as e:
+            print("Could not request results; {0}".format(e))
+            pass
+            
+        except sr.UnknownValueError:
+            print("unknown error occurred")
+            pass
+
+        # Assuming you have the new data point
+        new_data = pd.DataFrame({'hour': [hour], 'day': [day], 'month': [month]})
+        next_temp = temperature_model.predict(new_data)
+        print('Predicted next temperature:', next_temp[0])
+        client.publish("sensor1",next_temp[0])
+
+        next_humid = humid_model.predict(new_data)
+        print('Predicted next humid:', next_humid[0])
+        client.publish("sensor1",next_humid[0])
+
+
     #pas ,image = camera.read()
     #image = cv2.resize(image, (224, 224), interpolation=cv2.INTER_AREA)
     #cv2.imshow("Webcam", image)
@@ -103,6 +183,8 @@ try:
         except KeyboardInterrupt:
             client.publish("Ack","2")
             time.sleep(2)"""
+        
+        
 except KeyboardInterrupt:
     client.publish("Ack","2")
     time.sleep(2)
