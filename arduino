@@ -1,0 +1,24 @@
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(115200);
+}
+void loop() {
+  // put your main code here, to run repeatedly:
+  int temp = random(15,60);
+  int hum = random(0,100);
+  int lig = random(0,500);
+  int v[3]={temp,hum,lig};
+  int i = 0;
+  char sens[5] = {'T','H','L'};
+  while (i<3)
+  {
+    Serial.print("!1:");
+    Serial.print(sens[i]);
+    Serial.print(":");
+    Serial.print(v[i]);
+    Serial.print("#");
+    delay(5000);
+    i++;
+  }
+  
+}
